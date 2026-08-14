@@ -1,0 +1,12 @@
+# Overlay used by up.ps1 when no CLAUDE_CODE_OAUTH_TOKEN / ANTHROPIC_API_KEY is
+# available: shares ONLY the host claude credentials file into the container,
+# read-only — the container can never rotate or corrupt the host login. The
+# cleaner long-term setup is `claude setup-token` (see README), after which
+# this file is not used.
+#
+# The default value only keeps `docker compose down/config` parseable when the
+# variable is unset; up.ps1 always sets the real path before `up`.
+services:
+  server:
+    volumes:
+      - '${GRAMMARY_CLAUDE_FILE:-./docker-compose.hostlogin.yml}:/home/node/.claude/.credentials.json:ro'
