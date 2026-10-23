@@ -100,9 +100,16 @@ swaps or style rewrites.
 The translation keeps meaning, tone and register (slang stays slang, a casual
 chat message stays casual), line breaks, markdown and emoji, and does not add
 end-of-line periods the source didn't have. Code, identifiers, paths, URLs,
-@mentions and Latin-script product names are left as they are; parts already
-in the target language are kept, and a text that is entirely in it comes back
-unchanged.
+@mentions and Latin-script product names are left as they are.
+
+A mixed text — English with a Russian word or phrase in the middle, or the
+other way round — is translated as a whole: the result is one grammatical text
+entirely in the target language, and the errors of the parts that were already
+in it are fixed too (`when user open the страницу оплаты` → `When the user
+opens the payment page`). Only a text that is entirely in the target language
+comes back unchanged, byte for byte: the model just names the source language
+(`en`, `ru`, `mixed`, `other`) and the server decides, so the model never gets
+to retype it.
 
 If the text was edited while a request was in flight, nothing is overwritten.
 
