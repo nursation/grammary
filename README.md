@@ -1,16 +1,17 @@
 # Grammary
 
-Chrome extension that puts a magic-wand button in the top-right corner of any
-`<textarea>`. Click it — the text is grammar-fixed in place by Claude running
-through your **local** Claude Code login (the Claude Agent SDK: no API key
-needed, covered by your Claude subscription).
+Chrome extension that puts a small toolbar — **EN**, **RU** and a magic wand —
+in the top-right corner of any `<textarea>`. The wand grammar-fixes the text in
+place; EN and RU translate it in place into English or Russian. All of it is
+done by Claude running through your **local** Claude Code login (the Claude
+Agent SDK: no API key needed, covered by your Claude subscription).
 
 Two parts:
 
 | | |
 |---|---|
-| `server/` | HTTP server on `127.0.0.1:8917`; `POST /fix {text}` → `{fixed}` via a **warm** Agent SDK streaming session with a forced `submit_fix` tool call |
-| `extension/` | Manifest V3 extension: content script draws the wand button, background service worker calls the server |
+| `server/` | HTTP server on `127.0.0.1:8917`; `POST /fix {text}` → `{fixed}` and `POST /translate {text, to: "en" \| "ru"}` → `{translated}`, each via its own **warm** Agent SDK streaming session with a forced tool call (`submit_fix` / `submit_translation`) |
+| `extension/` | Manifest V3 extension: content script draws the toolbar, background service worker calls the server |
 
 ## Run the server (Docker, survives reboots)
 
@@ -74,32 +75,48 @@ npm start
 
 - Chrome → `chrome://extensions` → enable **Developer mode**
 - **Load unpacked** → pick the `extension/` folder of this repo
+- after changes in `extension/`: press the reload icon on the extension's card
+  and refresh the open tabs (old tabs keep the old content script, whose
+  buttons then fail with "Extension context invalidated")
 
 ## Use
 
-Hover or focus any textarea → a wand button appears in its top-right corner.
-Click it: the icon pulses while the request runs, then the text is replaced in
-place (React-style pages get a proper `input` event, so page state updates
-too). Green flash — fixed; red flash — error, hover the button to see the
-message in its tooltip (most common one: the server is not running).
+Hover or focus any textarea → the toolbar appears in its top-right corner:
+**EN** — translate into English, **RU** — translate into Russian, the wand —
+fix grammar. Click a button: it pulses while the request runs (the other two
+wait), then the text is replaced in place (React-style pages get a proper
+`input` event, so page state updates too). Green flash — done; red flash —
+error, hover the button to see the message in its tooltip (most common one:
+the server is not running). A textarea narrower than twice the toolbar shows
+the wand alone.
 
 The fix preserves language (Russian stays Russian), meaning, tone, line breaks
 and markdown. Grammar, spelling and punctuation are corrected, and a word used
 incorrectly (одеть/надеть, affect/effect, a wrong preposition, a broken idiom)
 is replaced with the one that was meant — while slang, jargon, intentional
 wordplay, quoted errors, names and code identifiers are left alone; no synonym
-swaps or style rewrites. If the text was edited while the request was in
-flight, nothing is overwritten.
+swaps or style rewrites.
+
+The translation keeps meaning, tone and register (slang stays slang, a casual
+chat message stays casual), line breaks, markdown and emoji, and does not add
+end-of-line periods the source didn't have. Code, identifiers, paths, URLs,
+@mentions and Latin-script product names are left as they are; parts already
+in the target language are kept, and a text that is entirely in it comes back
+unchanged.
+
+If the text was edited while a request was in flight, nothing is overwritten.
 
 ## Latency
 
-The first request after container start pays the CLI warm-up once; after that
-a persistent agent session answers in a few seconds. The session is recycled
-every 50 fixes to keep its context (and latency) bounded.
+Fixes and translations each have their own persistent agent session, both
+pre-warmed at container start, so a request answers in a few seconds and a
+fix never waits behind a translation. Each session is recycled every 50
+requests to keep its context (and latency) bounded.
 
 ## Limitations
 
 - Plain `<textarea>` only — no `contenteditable` editors (Google Docs, Slack),
   no textareas inside shadow DOM.
 - Texts over 20 000 characters are rejected by the server.
-- One fix runs at a time; concurrent clicks queue up.
+- Each session runs one request at a time; concurrent clicks of the same kind
+  queue up.

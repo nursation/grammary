@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Grammary",
-  "version": "0.1.0",
-  "description": "Magic-wand button on every textarea: fixes grammar with local Claude via the grammary server on 127.0.0.1.",
+  "version": "0.2.0",
+  "description": "Wand and EN/RU buttons on every textarea: fix grammar or translate with local Claude via the grammary server on 127.0.0.1.",
   "background": {
     "service_worker": "background.js"
   },

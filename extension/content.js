@@ -1,9 +1,10 @@
 (() => {
   const BTN_SIZE = 26;
+  const BTN_GAP = 3;
   const EDGE_GAP = 5;
 
-  /** the one floating button, shared by whichever textarea is active */
-  let btn = null;
+  /** the one floating toolbar, shared by whichever textarea is active */
+  let bar = null;
   let currentTa = null;
   let busy = false;
   let hideTimer = 0;
@@ -22,19 +23,51 @@
       <path d="M11 3H9"/>
     </svg>`;
 
-  function ensureButton() {
-    if (btn) return;
-    btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'grammary-btn';
-    btn.title = 'Исправить грамматику (Grammary)';
-    btn.innerHTML = WAND_SVG;
+  /** toolbar buttons, left to right — the wand stays rightmost, where it always was */
+  const ACTIONS = [
+    {
+      label: 'EN',
+      title: 'Перевести на английский (Grammary)',
+      message: { type: 'grammary:translate', to: 'en' },
+    },
+    {
+      label: 'RU',
+      title: 'Перевести на русский (Grammary)',
+      message: { type: 'grammary:translate', to: 'ru' },
+    },
+    {
+      icon: WAND_SVG,
+      title: 'Исправить грамматику (Grammary)',
+      message: { type: 'grammary:fix' },
+    },
+  ];
+  const BAR_WIDTH = ACTIONS.length * BTN_SIZE + (ACTIONS.length - 1) * BTN_GAP;
+
+  function ensureBar() {
+    if (bar) return;
+    bar = document.createElement('div');
+    bar.className = 'grammary-bar';
+    for (const action of ACTIONS) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'grammary-btn';
+      b.title = action.title;
+      if (action.icon) {
+        b.innerHTML = action.icon;
+      } else {
+        b.classList.add('grammary-lang');
+        const label = document.createElement('span');
+        label.textContent = action.label;
+        b.appendChild(label);
+      }
+      b.addEventListener('click', () => onClick(action, b));
+      bar.appendChild(b);
+    }
     // preventDefault on mousedown keeps focus in the textarea while clicking
-    btn.addEventListener('mousedown', (e) => e.preventDefault());
-    btn.addEventListener('click', onClick);
-    btn.addEventListener('mouseenter', cancelHide);
-    btn.addEventListener('mouseleave', scheduleHide);
-    document.documentElement.appendChild(btn);
+    bar.addEventListener('mousedown', (e) => e.preventDefault());
+    bar.addEventListener('mouseenter', cancelHide);
+    bar.addEventListener('mouseleave', scheduleHide);
+    document.documentElement.appendChild(bar);
   }
 
   function isCandidate(el) {
@@ -46,31 +79,37 @@
     );
   }
 
+  /** pins the toolbar to the textarea's top-right corner; false when it can't be shown */
   function position() {
-    if (!currentTa || !btn) return;
+    if (!currentTa || !bar) return false;
     const r = currentTa.getBoundingClientRect();
-    const tooSmall = r.width < BTN_SIZE * 2 || r.height < BTN_SIZE;
+    // the toolbar never covers more than half of the textarea's width, so a
+    // narrow one gets the wand alone
+    const compact = r.width < BAR_WIDTH * 2;
+    const width = compact ? BTN_SIZE : BAR_WIDTH;
+    const tooSmall = r.width < width * 2 || r.height < BTN_SIZE;
     const offScreen = r.bottom < 0 || r.top > innerHeight || r.right < 0 || r.left > innerWidth;
     if (tooSmall || offScreen) {
       hide(true);
-      return;
+      return false;
     }
-    btn.style.top = `${r.top + EDGE_GAP}px`;
-    btn.style.left = `${r.right - EDGE_GAP - BTN_SIZE}px`;
+    bar.classList.toggle('grammary-compact', compact);
+    bar.style.top = `${r.top + EDGE_GAP}px`;
+    bar.style.left = `${r.right - EDGE_GAP - width}px`;
+    return true;
   }
 
   function show(ta) {
-    ensureButton();
-    if (busy && currentTa !== ta) return; // don't steal the button mid-request
+    ensureBar();
+    if (busy && currentTa !== ta) return; // don't steal the toolbar mid-request
     cancelHide();
     currentTa = ta;
-    position();
-    btn.classList.add('grammary-visible');
+    if (position()) bar.classList.add('grammary-visible');
   }
 
   function hide(force = false) {
     if (busy && !force) return;
-    if (btn) btn.classList.remove('grammary-visible');
+    if (bar) bar.classList.remove('grammary-visible');
     currentTa = null;
   }
 
@@ -92,41 +131,44 @@
     ta.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
-  function flash(cls) {
-    btn.classList.add(cls);
-    setTimeout(() => btn?.classList.remove(cls), 1500);
+  function flash(b, cls) {
+    b.classList.add(cls);
+    setTimeout(() => b.classList.remove(cls), 1500);
   }
 
-  async function onClick() {
+  async function onClick(action, b) {
     if (busy || !currentTa) return;
     const ta = currentTa;
     const text = ta.value;
     if (!text.trim()) return;
 
     busy = true;
-    btn.classList.add('grammary-busy');
+    b.title = action.title;
+    bar.classList.add('grammary-locked');
+    b.classList.add('grammary-busy');
     try {
-      const resp = await chrome.runtime.sendMessage({ type: 'grammary:fix', text });
+      const resp = await chrome.runtime.sendMessage({ ...action.message, text });
       if (!resp?.ok) throw new Error(resp?.error ?? 'пустой ответ от расширения');
       // the person may have typed meanwhile — only replace if the text is unchanged
       if (ta.value === text) {
-        setValue(ta, resp.fixed);
-        flash('grammary-ok');
+        setValue(ta, resp.text);
+        flash(b, 'grammary-ok');
       } else {
-        btn.title = 'Grammary: текст изменился во время исправления — ничего не тронуто';
-        flash('grammary-err');
+        b.title = 'Grammary: пока шёл запрос, текст изменился — ничего не тронуто';
+        flash(b, 'grammary-err');
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.warn('[grammary]', msg);
-      btn.title = `Grammary: ${msg}`;
-      flash('grammary-err');
+      b.title = `Grammary: ${msg}`;
+      flash(b, 'grammary-err');
       setTimeout(() => {
-        if (btn) btn.title = 'Исправить грамматику (Grammary)';
+        b.title = action.title;
       }, 8000);
     } finally {
       busy = false;
-      btn.classList.remove('grammary-busy');
+      bar.classList.remove('grammary-locked');
+      b.classList.remove('grammary-busy');
       if (currentTa) position();
       else hide();
     }
@@ -145,7 +187,7 @@
     if (isCandidate(e.target)) show(e.target);
   });
   document.addEventListener('mouseout', (e) => {
-    if (e.target === currentTa && e.relatedTarget !== btn) scheduleHide();
+    if (e.target === currentTa && !bar.contains(e.relatedTarget)) scheduleHide();
   });
   document.addEventListener('focusin', (e) => {
     if (isCandidate(e.target)) show(e.target);

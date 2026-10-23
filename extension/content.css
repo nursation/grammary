@@ -1,53 +1,98 @@
-.grammary-btn {
+/* button rules are prefixed with .grammary-bar so they outrank the page's own
+   generic styles (button:hover, .toolbar button, span, ...) */
+
+.grammary-bar {
   position: fixed;
   z-index: 2147483646;
   display: none;
+  flex-direction: row;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.grammary-bar.grammary-visible {
+  display: flex;
+}
+
+/* a narrow textarea gets the wand alone */
+.grammary-bar.grammary-compact .grammary-lang {
+  display: none;
+}
+
+.grammary-bar .grammary-btn {
+  box-sizing: border-box;
+  display: inline-flex;
+  flex: none;
   align-items: center;
   justify-content: center;
   width: 26px;
   height: 26px;
+  min-width: 0;
+  min-height: 0;
   padding: 0;
   margin: 0;
   border: 1px solid rgba(0, 0, 0, 0.12);
   border-radius: 7px;
   background: #ffffff;
   color: #7c3aed;
+  font: 700 10px/1 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  letter-spacing: 0.02em;
+  text-transform: none;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
   cursor: pointer;
-  transition: transform 0.12s ease, box-shadow 0.12s ease, color 0.2s ease;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, color 0.2s ease, opacity 0.2s ease;
 }
 
-.grammary-btn.grammary-visible {
-  display: inline-flex;
-}
-
-.grammary-btn:hover {
+.grammary-bar:not(.grammary-locked) .grammary-btn:hover {
   transform: scale(1.1);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
 
-.grammary-btn svg {
+.grammary-bar .grammary-btn svg {
   width: 15px;
   height: 15px;
   display: block;
   pointer-events: none;
 }
 
-.grammary-btn.grammary-busy {
+.grammary-bar .grammary-btn span {
+  display: block;
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  pointer-events: none;
+}
+
+.grammary-bar .grammary-btn.grammary-busy {
   cursor: progress;
   color: #9ca3af;
 }
 
-.grammary-btn.grammary-busy svg {
+.grammary-bar .grammary-btn.grammary-busy svg {
   animation: grammary-pulse 1s ease-in-out infinite;
 }
 
-.grammary-btn.grammary-ok {
+.grammary-bar .grammary-btn.grammary-busy span {
+  animation: grammary-blink 1s ease-in-out infinite;
+}
+
+/* while one button works, the others wait */
+.grammary-bar.grammary-locked .grammary-btn:not(.grammary-busy) {
+  cursor: progress;
+  opacity: 0.45;
+}
+
+.grammary-bar .grammary-btn.grammary-ok {
   color: #16a34a;
   border-color: #16a34a;
 }
 
-.grammary-btn.grammary-err {
+.grammary-bar .grammary-btn.grammary-err {
   color: #dc2626;
   border-color: #dc2626;
 }
@@ -61,5 +106,15 @@
   50% {
     opacity: 0.4;
     transform: rotate(-15deg);
+  }
+}
+
+@keyframes grammary-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
   }
 }
