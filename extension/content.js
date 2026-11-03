@@ -154,7 +154,7 @@
         setValue(ta, resp.text);
         flash(b, 'grammary-ok');
       } else {
-        b.title = 'Grammary: пока шёл запрос, текст изменился — ничего не тронуто';
+        b.title = 'Grammary: пока шел запрос, текст изменился — ничего не тронуто';
         flash(b, 'grammary-err');
       }
     } catch (err) {

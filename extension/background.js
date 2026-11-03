@@ -32,7 +32,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       if (err instanceof TypeError) {
         error = `сервер не отвечает на ${SERVER} — проверь, что Docker Desktop запущен, или выполни up.ps1 в grammary (dev-вариант: npm start в grammary/server)`;
       } else if (err?.name === 'TimeoutError') {
-        error = 'сервер не ответил за 120 с — занят или завис, попробуй ещё раз';
+        error = 'сервер не ответил за 120 с — занят или завис, попробуй еще раз';
       } else {
         error = err instanceof Error ? err.message : String(err);
       }

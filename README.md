@@ -111,6 +111,11 @@ comes back unchanged, byte for byte: the model just names the source language
 (`en`, `ru`, `mixed`, `other`) and the server decides, so the model never gets
 to retype it.
 
+Neither the fix nor a translation ever writes the letter ё — always е
+(`ещё` → `еще`, `всё` → `все`). The prompts ask for it and the server enforces
+it on every result the model returns, so the wand also turns the author's own
+ё into е. Only a text that EN/RU hand back unchanged keeps its ё.
+
 If the text was edited while a request was in flight, nothing is overwritten.
 
 ## Latency
