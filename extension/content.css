@@ -10,6 +10,17 @@
   margin: 0;
   padding: 0;
   border: 0;
+  /* it sits on the textarea's text: faint, so the words under it stay readable */
+  opacity: 0.3;
+  transition: opacity 0.15s ease;
+}
+
+/* solid once the pointer is on it, while it works, and while it shows the result */
+.grammary-bar:hover,
+.grammary-bar:focus-within,
+.grammary-bar.grammary-locked,
+.grammary-bar:has(.grammary-ok, .grammary-err) {
+  opacity: 1;
 }
 
 .grammary-bar.grammary-visible {

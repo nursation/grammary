@@ -87,7 +87,8 @@ npm start
 
 ## Use
 
-Hover or focus any textarea → the toolbar appears in its top-right corner:
+Hover or focus any textarea → the toolbar appears in its top-right corner,
+faint so the text under it stays readable, and solid once the pointer is on it:
 **EN** — translate into English, **RU** — translate into Russian, the wand —
 fix grammar. Click a button: it pulses while the request runs (the other two
 wait), then the text is replaced in place (React-style pages get a proper
