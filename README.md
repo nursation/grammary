@@ -60,9 +60,10 @@ Other commands:
 docker logs -f grammary
 ```
 
-`GRAMMARY_MODEL` env var overrides the model (default
-`claude-haiku-4-5-20251001` — fastest; `claude-sonnet-5` is slower but
-stronger). Note: the extension calls port `8917` hardcoded — if you change
+`GRAMMARY_MODEL` env var overrides the model (default `claude-haiku-5-5` —
+fastest; `claude-sonnet-5-5` is slower but stronger). The server turns thinking
+off and pins effort to `medium` (Haiku 5.5 takes disabled thinking only at
+`high` or below). Note: the extension calls port `8917` hardcoded — if you change
 `GRAMMARY_PORT`, also change `SERVER` in `extension/background.js` **and**
 `host_permissions` in `extension/manifest.json`, then reload the extension on
 `chrome://extensions` (the manifest is only re-read on reload). `up.ps1` prints

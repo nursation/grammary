@@ -6,7 +6,7 @@ import { z } from 'zod';
 
 const PORT = Number(process.env.GRAMMARY_PORT ?? 8917);
 const HOST = process.env.GRAMMARY_HOST ?? '127.0.0.1';
-const MODEL = process.env.GRAMMARY_MODEL ?? 'claude-haiku-4-5-20251001';
+const MODEL = process.env.GRAMMARY_MODEL ?? 'claude-haiku-5-5';
 const MAX_TEXT_LEN = 20_000;
 
 /**
@@ -245,6 +245,9 @@ class AgentWorker<R> {
         permissionMode: 'bypassPermissions',
         settingSources: [],
         thinking: { type: 'disabled' },
+        // the CLI would default to 'high'; medium is plenty for a fix or a
+        // translation (and Haiku 5.5 takes disabled thinking only up to 'high')
+        effort: 'medium',
       },
     } as any) as AgentWorker<R>['q'];
 

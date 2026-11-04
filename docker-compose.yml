@@ -10,7 +10,7 @@ services:
     ports:
       - '127.0.0.1:${GRAMMARY_PORT:-8917}:8917'
     environment:
-      GRAMMARY_MODEL: ${GRAMMARY_MODEL:-claude-haiku-4-5-20251001}
+      GRAMMARY_MODEL: ${GRAMMARY_MODEL:-claude-haiku-5-5}
       # the container's own long-lived token (`claude setup-token`), which
       # up.ps1 saves to .env next to this file (gitignored) on its first run.
       # No `:-` default on purpose: without .env a bare `docker compose up`
