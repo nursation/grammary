@@ -54,12 +54,24 @@ function Set-DotEnvValue([string]$Name, [string]$Value) {
 }
 
 # The CLI hard-wraps the token to the terminal width and indents every line,
-# so a copied token can span lines: find it in the clipboard, glue it back.
+# and a terminal may copy that break as a newline or as a space: find the
+# token in the clipboard and glue its pieces back. A setup-token has 108
+# characters, so gluing stops there, before any text that follows it.
 function Get-ClipboardToken {
   $text = ''
-  try { $text = Get-Clipboard -Raw } catch {}
-  $m = [regex]::Match("$text", 'sk-ant-oat\d+-[A-Za-z0-9_-]*(?:[ \t]*\r?\n[ \t]*[A-Za-z0-9_-]+)*')
-  if ($m.Success) { $m.Value -replace '\s', '' }
+  try { $text = "$(Get-Clipboard -Raw)" } catch {}
+  $m = [regex]::Match($text, 'sk-ant-oat\d+-[A-Za-z0-9_-]*')
+  if (-not $m.Success) { return }
+  $token = $m.Value
+  $rest = $text.Substring($m.Index + $m.Length)
+  while ($token.Length -lt 108) {
+    # the next piece: after spaces and at most one line break (a blank line ends it)
+    $next = [regex]::Match($rest, '^[^\S\r\n]*(?:\r\n|\r|\n)?[^\S\r\n]*([A-Za-z0-9_-]+)')
+    if (-not $next.Success) { break }
+    $token += $next.Groups[1].Value
+    $rest = $rest.Substring($next.Length)
+  }
+  $token
 }
 
 # a setup-token has 108 characters; fewer means a wrapped line was not copied
