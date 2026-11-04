@@ -28,10 +28,13 @@ itself autostarts (Settings → General → "Start Docker Desktop when you sign 
 The container signs in with its own long-lived token — `CLAUDE_CODE_OAUTH_TOKEN`
 from `claude setup-token`: valid for a year, covered by the subscription and
 independent of the host login. The first `.\up.ps1` creates it: a browser
-window asks you to approve, you paste the token the CLI prints, and it is saved
-to `.env` next to `docker-compose.yml` (gitignored). Compose reads `.env` by
-itself, so even a bare `docker compose up -d` keeps it. After a year, or if the
-token was revoked, `.\up.ps1 -SetupToken` replaces it.
+window asks you to approve, then you copy the token the CLI prints — all of its
+lines, a narrow terminal wraps it — and press Enter; the script takes it from
+the clipboard, glues the lines back together and saves it to `.env` next to
+`docker-compose.yml` (gitignored). A token already in the clipboard (say, from
+a run that failed) is reused instead of creating another one. Compose reads
+`.env` by itself, so even a bare `docker compose up -d` keeps it. After a year,
+or if the token was revoked, `.\up.ps1 -SetupToken` replaces it.
 
 The host login (`%USERPROFILE%\.claude\.credentials.json`) is deliberately
 **not** shared with the container: its access token lives about 8 hours and the

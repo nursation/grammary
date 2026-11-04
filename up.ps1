@@ -4,9 +4,11 @@
 
   The container signs in with its OWN long-lived token: CLAUDE_CODE_OAUTH_TOKEN
   from `claude setup-token` (valid for a year, covered by the subscription). The
-  first run creates it: approve in the browser, paste the token the CLI prints,
-  and it is saved to .env next to this script (gitignored; docker compose reads
-  .env by itself, so even a bare `docker compose up` keeps it).
+  first run creates it: approve in the browser, copy the token the CLI prints
+  (all of its lines - a narrow terminal wraps it) and press Enter; it is saved
+  to .env next to this script (gitignored; docker compose reads .env by itself,
+  so even a bare `docker compose up` keeps it). A token already in the
+  clipboard is reused instead of creating another one.
 
   The host login (~\.claude\.credentials.json) is not shared with the container:
   its access token lives ~8 hours and the container cannot refresh it, so the
@@ -51,24 +53,62 @@ function Set-DotEnvValue([string]$Name, [string]$Value) {
   [IO.File]::WriteAllLines($envFile, [string[]]$lines)
 }
 
-# `claude setup-token` (approved in the browser) -> the pasted token -> .env
+# The CLI hard-wraps the token to the terminal width and indents every line,
+# so a copied token can span lines: find it in the clipboard, glue it back.
+function Get-ClipboardToken {
+  $text = ''
+  try { $text = Get-Clipboard -Raw } catch {}
+  $m = [regex]::Match("$text", 'sk-ant-oat\d+-[A-Za-z0-9_-]*(?:[ \t]*\r?\n[ \t]*[A-Za-z0-9_-]+)*')
+  if ($m.Success) { $m.Value -replace '\s', '' }
+}
+
+# a setup-token has 108 characters; fewer means a wrapped line was not copied
+function Confirm-TokenLength([string]$Token) {
+  if ($Token.Length -eq 108) { return $true }
+  Write-Host "the copied token has $($Token.Length) characters, not 108 - were all of its lines selected?" -ForegroundColor Yellow
+  return ((Read-Host 'use it anyway? [y/N]') -match '^\s*y')
+}
+
+# `claude setup-token` (approved in the browser) -> the copied token -> .env
 function New-ContainerToken {
-  if (-not (Get-Command claude -ErrorAction SilentlyContinue)) {
-    throw 'the claude CLI is not on PATH - install Claude Code, then re-run .\up.ps1'
-  }
   if ([Console]::IsInputRedirected) {
     throw 'creating the token needs an interactive terminal - run .\up.ps1 -SetupToken in one'
   }
-  Write-Host 'Creating the container''s own Claude token (valid for a year): approve it in the browser window, then copy the sk-ant-oat01-... token the CLI prints.' -ForegroundColor Cyan
-  & claude setup-token
-  if ($LASTEXITCODE -ne 0) { throw 'claude setup-token failed - nothing saved' }
-  $secure = Read-Host 'Paste the token (input is hidden)' -AsSecureString
-  $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
-  try { $token = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr).Trim() }
-  finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
-  if ($token -notmatch '^sk-ant-oat\d+-\S+$') {
-    throw 'that is not a setup-token (expected sk-ant-oat01-...) - nothing saved; run .\up.ps1 -SetupToken again'
+
+  # a token an earlier run printed (still on screen, copied) is reused
+  # instead of creating one more
+  $old = Get-ClipboardToken
+  $reuse = $old -and (Read-Host 'the clipboard holds a setup-token - use it? [Y/n]') -notmatch '^\s*n'
+
+  if (-not $reuse) {
+    if (-not (Get-Command claude -ErrorAction SilentlyContinue)) {
+      throw 'the claude CLI is not on PATH - install Claude Code, then re-run .\up.ps1'
+    }
+    Write-Host 'Creating the container''s own Claude token (valid for a year): approve it in the browser.' -ForegroundColor Cyan
+    & claude setup-token
+    if ($LASTEXITCODE -ne 0) { throw 'claude setup-token failed - nothing saved' }
   }
+
+  $token = $null
+  $ask = -not $reuse
+  while (-not $token) {
+    if ($ask) {
+      # hidden, so a token pasted here anyway is not printed a second time
+      $secure = Read-Host 'Select ALL lines of the token above, copy them, then press Enter here (q = quit)' -AsSecureString
+      try { $Host.UI.RawUI.FlushInputBuffer() } catch {}   # the rest of a multi-line paste
+      if ((New-Object Net.NetworkCredential('', $secure)).Password.Trim() -eq 'q') { throw 'nothing saved' }
+    }
+    $ask = $true
+    $copied = Get-ClipboardToken
+    if (-not $copied) {
+      Write-Host 'the clipboard holds no sk-ant-oat01-... token' -ForegroundColor Yellow
+    } elseif (-not $reuse -and $copied -eq $old) {
+      Write-Host 'that is still the old token - copy the one just printed' -ForegroundColor Yellow
+    } elseif (Confirm-TokenLength $copied) {
+      $token = $copied
+    }
+  }
+
   Set-DotEnvValue 'CLAUDE_CODE_OAUTH_TOKEN' $token
   $env:CLAUDE_CODE_OAUTH_TOKEN = $token
   Write-Host "token saved to $envFile (gitignored)" -ForegroundColor Green
