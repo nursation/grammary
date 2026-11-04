@@ -206,6 +206,9 @@ interface Waiter<R> {
   reject: (e: Error) => void;
 }
 
+/** the API refused the turn (expired login, rate limit, ...): a fresh session won't help */
+class ApiError extends Error {}
+
 class AgentWorker<R> {
   jobs = 0;
   dead = false;
@@ -214,6 +217,7 @@ class AgentWorker<R> {
   private channel = new Channel();
   private q: AsyncGenerator<unknown, void> & { interrupt?: () => Promise<unknown> };
   private captured: R | null = null;
+  private apiError: ApiError | null = null;
   private waiter: Waiter<R> | null = null;
   private lastCostUsd = 0;
 
@@ -251,6 +255,7 @@ class AgentWorker<R> {
   run(prompt: string): Promise<{ result: R; costUsd?: number }> {
     return new Promise((resolve, reject) => {
       this.captured = null;
+      this.apiError = null;
       this.waiter = { resolve, reject };
       this.channel.push({
         type: 'user',
@@ -272,6 +277,21 @@ class AgentWorker<R> {
     try {
       for await (const msg of this.q) {
         const m = msg as any;
+        // the CLI reports a refused API call as a synthetic assistant message
+        // whose text says what went wrong — that, not "never called", is the error
+        if (m.type === 'assistant' && m.error) {
+          const said =
+            (m.message?.content ?? [])
+              .map((c: any) => c?.text ?? '')
+              .join(' ')
+              .trim() || String(m.error);
+          this.apiError = new ApiError(
+            m.error === 'authentication_failed'
+              ? `${said} — у контейнера нет рабочего входа в Claude: на хосте запусти .\\up.ps1 -SetupToken`
+              : said,
+          );
+          continue;
+        }
         if (m.type !== 'result') continue;
         const w = this.waiter;
         this.waiter = null;
@@ -284,11 +304,12 @@ class AgentWorker<R> {
           w.resolve({ result: this.captured, costUsd });
         } else {
           w.reject(
-            new Error(
-              m.subtype && m.subtype !== 'success'
-                ? `agent turn ended with subtype=${m.subtype}`
-                : `${this.task.toolName} was never called`,
-            ),
+            this.apiError ??
+              new Error(
+                m.subtype && m.subtype !== 'success'
+                  ? `agent turn ended with subtype=${m.subtype}`
+                  : `${this.task.toolName} was never called`,
+              ),
           );
         }
       }
@@ -380,9 +401,10 @@ async function runJob<R>(
       return await attempt(Math.min(JOB_TIMEOUT_MS, remaining()));
     } catch (err) {
       // a stale session (e.g. the CLI died while idle) fails the first message;
-      // one retry on a fresh worker covers that without bothering the caller
+      // one retry on a fresh worker covers that without bothering the caller.
+      // An API refusal (expired login, rate limit) would only fail again.
       const msg = err instanceof Error ? err.message : String(err);
-      if (/timed out/.test(msg)) throw err;
+      if (/timed out/.test(msg) || err instanceof ApiError) throw err;
       if (isAbandoned() || remaining() < MIN_ATTEMPT_MS) throw err;
       console.warn(`[grammary] ${lane.task.name}: retrying on a fresh session after: ${msg}`);
       lane.worker?.dispose();

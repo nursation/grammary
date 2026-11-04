@@ -11,10 +11,11 @@ services:
       - '127.0.0.1:${GRAMMARY_PORT:-8917}:8917'
     environment:
       GRAMMARY_MODEL: ${GRAMMARY_MODEL:-claude-haiku-4-5-20251001}
-      # values come from .env next to this file (gitignored) or from the shell
-      # via up.ps1 — the canonical entry point. No `:-` default on purpose: a
-      # bare `docker compose up` without them prints a warning instead of
-      # silently recreating the container with no credentials.
+      # the container's own long-lived token (`claude setup-token`), which
+      # up.ps1 saves to .env next to this file (gitignored) on its first run.
+      # No `:-` default on purpose: without .env a bare `docker compose up`
+      # prints a warning instead of silently recreating the container with no
+      # credentials.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN}
     volumes:

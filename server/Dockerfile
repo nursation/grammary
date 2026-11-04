@@ -13,9 +13,8 @@ RUN npm ci --no-audit --no-fund
 COPY tsconfig.json ./tsconfig.json
 COPY src ./src
 
-# the CLI refuses --dangerously-skip-permissions as root, so run as 'node';
-# ~/.claude is pre-created so a bind-mounted credentials file lands in a
-# directory the CLI can still write to (projects/, statsig/, ...)
+# the CLI refuses --dangerously-skip-permissions as root, so run as 'node',
+# with a ~/.claude it can write its state to (projects/, sessions/, ...)
 RUN mkdir -p /home/node/.claude && chown -R node:node /home/node/.claude
 USER node
 ENV HOME=/home/node

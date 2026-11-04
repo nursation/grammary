@@ -23,33 +23,35 @@ cd grammary
 The container restarts automatically after a reboot as long as Docker Desktop
 itself autostarts (Settings → General → "Start Docker Desktop when you sign in").
 
-Credentials, in order of preference:
+### Credentials: the container's own token
 
-1. `CLAUDE_CODE_OAUTH_TOKEN` / `ANTHROPIC_API_KEY` from the shell environment;
-2. **recommended:** the same keys in `.env` next to `docker-compose.yml`
-   (gitignored) — run `claude setup-token` once and put
-   `CLAUDE_CODE_OAUTH_TOKEN=<token>` there. Compose reads `.env` by itself, so
-   even a bare `docker compose up -d` keeps the credentials. Do **not** put the
-   token into `~/.claude/settings.json` (`env` block): it applies to every
-   Claude Code session on the host and silently downgrades them to the
-   inference-only token;
-3. `~/.claude/settings.json` `env` block (legacy fallback, read by `up.ps1`);
-4. last resort, applied automatically: only the host credentials file
-   (`%USERPROFILE%\.claude\.credentials.json`) is bind-mounted **read-only**
-   into the container — it cannot corrupt or rotate the host login. Note the
-   cached access token expires after a few hours of not using Claude on the
-   host; any `claude` run on the host refreshes it. The `setup-token` route has
-   no such dependency.
+The container signs in with its own long-lived token — `CLAUDE_CODE_OAUTH_TOKEN`
+from `claude setup-token`: valid for a year, covered by the subscription and
+independent of the host login. The first `.\up.ps1` creates it: a browser
+window asks you to approve, you paste the token the CLI prints, and it is saved
+to `.env` next to `docker-compose.yml` (gitignored). Compose reads `.env` by
+itself, so even a bare `docker compose up -d` keeps it. After a year, or if the
+token was revoked, `.\up.ps1 -SetupToken` replaces it.
 
-Without `.env`, recreate the container only via `.\up.ps1`: a bare
-`docker compose up` from a fresh shell interpolates the secrets to empty
-strings and recreates the container **without** credentials (compose warns
-about the unset variables; `/health` then reports `auth: false`, and `up.ps1`
-prints a red warning). A plain `docker restart grammary` is always safe.
+The host login (`%USERPROFILE%\.claude\.credentials.json`) is deliberately
+**not** shared with the container: its access token lives about 8 hours and the
+container cannot refresh it (`OAuth session expired and could not be
+refreshed`), so a container borrowing it died every morning until the next
+`claude` login on the host. Nor put the token into `~/.claude/settings.json`
+(`env` block): it applies to every Claude Code session on the host and silently
+downgrades them to the inference-only token.
+
+`up.ps1` takes `CLAUDE_CODE_OAUTH_TOKEN` / `ANTHROPIC_API_KEY` from the shell
+environment, else from `.env`, else from the legacy `~/.claude/settings.json`
+`env` block, and runs `claude setup-token` only when none has one. Once the
+server is up it asks Claude for one tiny fix, so a wrong or expired token shows
+right away; later an auth failure shows in the extension's red tooltip together
+with the command to run. A plain `docker restart grammary` is always safe.
 
 Other commands:
 
 ```powershell
+.\up.ps1 -SetupToken  # new token for the container (after a year, or if it was revoked)
 .\up.ps1 -Rebuild     # rebuild the image (после правок server/src достаточно docker restart grammary)
 .\up.ps1 -Down        # stop and remove
 docker logs -f grammary
