@@ -122,6 +122,47 @@
     clearTimeout(hideTimer);
   }
 
+  /* On ntchat (Rocket.Chat) the earlier messages of the chat or thread the
+     text is written into go along with it, so the model can settle doubtful
+     cases (which word was meant, how a name is spelled) from the conversation. */
+  const CONTEXT_HOSTS = ['ntchat.ntpayments.net'];
+  const CONTEXT_MESSAGES = 20;
+  const CONTEXT_CHARS = 6000;
+  const CONTEXT_MESSAGE_CHARS = 1500;
+
+  /**
+   * Rocket.Chat: a message is `.rcx-message[role=listitem]` (system messages
+   * are `.rcx-message-system` and thread previews in a channel are role=link,
+   * so both stay out); a sequential message has no header and inherits the
+   * author above it. The composer's closest ancestor holding messages is its
+   * conversation: the thread panel for a reply in a thread, the room for a
+   * channel message. Returns the newest messages, oldest first.
+   */
+  function chatContext(ta) {
+    if (!CONTEXT_HOSTS.includes(location.hostname)) return undefined;
+    for (let el = ta.parentElement; el && el !== document.body; el = el.parentElement) {
+      const items = el.querySelectorAll('.rcx-message[role="listitem"]');
+      if (items.length === 0) continue;
+      const all = [];
+      let author = '';
+      for (const item of items) {
+        const name = item.querySelector('.rcx-message-header__name');
+        if (name) author = name.textContent.trim();
+        const text = item.querySelector('.rcx-message-body')?.innerText.trim();
+        if (text) all.push({ author, text: text.slice(0, CONTEXT_MESSAGE_CHARS) });
+      }
+      const picked = [];
+      let chars = 0;
+      for (const m of all.reverse()) {
+        if (picked.length === CONTEXT_MESSAGES || chars + m.text.length > CONTEXT_CHARS) break;
+        chars += m.text.length;
+        picked.push(m);
+      }
+      return picked.reverse();
+    }
+    return undefined;
+  }
+
   /** set value the way frameworks (React & co.) notice: native setter + input event */
   function setValue(ta, value) {
     const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
@@ -147,7 +188,7 @@
     bar.classList.add('grammary-locked');
     b.classList.add('grammary-busy');
     try {
-      const resp = await chrome.runtime.sendMessage({ ...action.message, text });
+      const resp = await chrome.runtime.sendMessage({ ...action.message, text, context: chatContext(ta) });
       if (!resp?.ok) throw new Error(resp?.error ?? 'пустой ответ от расширения');
       // the person may have typed meanwhile — only replace if the text is unchanged
       if (ta.value === text) {

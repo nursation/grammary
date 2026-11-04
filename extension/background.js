@@ -14,7 +14,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       const res = await fetch(`${SERVER}${route.path}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: msg.text, to: msg.to }),
+        body: JSON.stringify({ text: msg.text, to: msg.to, context: msg.context }),
         signal: AbortSignal.timeout(120_000),
       });
       const data = await res.json().catch(() => null);

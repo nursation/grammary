@@ -117,6 +117,14 @@ comes back unchanged, byte for byte: the model just names the source language
 (`en`, `ru`, `mixed`, `other`) and the server decides, so the model never gets
 to retype it.
 
+On ntchat (`ntchat.ntpayments.net`, Rocket.Chat) the extension also sends the
+earlier messages of the conversation the text is written into — the thread for
+a reply in a thread, the channel otherwise; the newest 20 at most, 6000
+characters in all. The model reads them only to settle a doubtful case — which
+word was meant, how a name or a term is spelled (`глянь мой кот плз` after a
+message about a PR becomes `глянь мой код плз`) — and never fixes, translates
+or copies them. On every other site only the text itself is sent.
+
 Neither the fix nor a translation ever writes the letter ё — always е
 (`ещё` → `еще`, `всё` → `все`). The prompts ask for it and the server enforces
 it on every result the model returns, so the wand also turns the author's own
